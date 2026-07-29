@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Salon de jeux</title>
+    <style>
+      :root {
+        --fond: #0e1116;
+        --carte: #171c24;
+        --bordure: #262e3a;
+        --texte: #e7ecf3;
+        --doux: #93a1b5;
+        --accent: #4ade80;
+        --accent-sombre: #16351f;
+        --erreur: #f87171;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--fond);
+        color: var(--texte);
+        font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        display: flex;
+        justify-content: center;
+        padding: 2rem 1rem;
+      }
+      main { width: 100%; max-width: 720px; }
+      h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+      .sous-titre { color: var(--doux); margin: 0 0 2rem; }
+
+      .carte {
+        background: var(--carte);
+        border: 1px solid var(--bordure);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+      }
+
+      label { display: block; font-size: .85rem; color: var(--doux); margin-bottom: .3rem; }
+      input {
+        width: 100%;
+        padding: .6rem .7rem;
+        margin-bottom: .9rem;
+        background: #0f141b;
+        border: 1px solid var(--bordure);
+        border-radius: 8px;
+        color: var(--texte);
+        font-size: 1rem;
+      }
+      input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+      button {
+        background: var(--accent);
+        color: #07130c;
+        border: 0;
+        border-radius: 8px;
+        padding: .6rem 1.1rem;
+        font-size: .95rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover { filter: brightness(1.08); }
+      button.discret {
+        background: transparent;
+        color: var(--doux);
+        border: 1px solid var(--bordure);
+        font-weight: 500;
+      }
+
+      .onglets { display: flex; gap: .5rem; margin-bottom: 1.25rem; }
+
+      .bandeau {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .solde { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+      .solde span { font-size: .8rem; color: var(--doux); font-weight: 500; }
+
+      .jeu { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+      .jeu h3 { margin: 0 0 .2rem; font-size: 1.05rem; }
+      .jeu p { margin: 0; color: var(--doux); font-size: .9rem; }
+      .etiquette {
+        font-size: .7rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        padding: .2rem .5rem;
+        border-radius: 99px;
+        background: var(--accent-sombre);
+        color: var(--accent);
+        white-space: nowrap;
+      }
+      .etiquette.bientot { background: #1e2532; color: var(--doux); }
+      a.jeu { text-decoration: none; color: inherit; display: flex; transition: border-color .15s; }
+      a.jeu:hover { border-color: var(--accent); }
+      .message { color: var(--erreur); font-size: .9rem; min-height: 1.4em; margin-bottom: .5rem; }
+      .cache { display: none; }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <h1>Salon de jeux</h1>
+      <p class="sous-titre">Parties gratuites en jetons. Vérifiables, toujours.</p>
+
+      <!-- Connexion -->
+      <section id="vue-connexion" class="carte">
+        <div class="onglets">
+          <button id="onglet-connexion">Connexion</button>
+          <button id="onglet-inscription" class="discret">Créer un compte</button>
+        </div>
+        <p class="message" id="message"></p>
+        <form id="formulaire">
+          <label for="pseudo">Pseudo</label>
+          <input id="pseudo" name="pseudo" autocomplete="username" required />
+          <label for="motDePasse">Mot de passe</label>
+          <input id="motDePasse" name="motDePasse" type="password" autocomplete="current-password" required />
+          <button type="submit" id="valider">Se connecter</button>
+        </form>
+      </section>
+
+      <!-- Salon -->
+      <section id="vue-salon" class="cache">
+        <div class="carte bandeau">
+          <div>
+            <div class="solde"><span id="pseudo-affiche"></span></div>
+            <div class="solde" id="solde">— <span>jetons</span></div>
+          </div>
+          <button class="discret" id="deconnexion">Se déconnecter</button>
+        </div>
+        <div id="liste-jeux"></div>
+      </section>
+    </main>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      let mode = 'connexion';
+
+      async function api(chemin, options = {}) {
+        const reponse = await fetch(chemin, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options,
+        });
+        const corps = await reponse.json().catch(() => ({}));
+        if (!reponse.ok) throw new Error(corps.erreur ?? 'Erreur inattendue');
+        return corps;
+      }
+
+      function basculer(nouveauMode) {
+        mode = nouveauMode;
+        const connexion = mode === 'connexion';
+        $('onglet-connexion').className = connexion ? '' : 'discret';
+        $('onglet-inscription').className = connexion ? 'discret' : '';
+        $('valider').textContent = connexion ? 'Se connecter' : 'Créer mon compte';
+        $('motDePasse').autocomplete = connexion ? 'current-password' : 'new-password';
+        $('message').textContent = '';
+      }
+
+      function afficherSalon(joueur) {
+        $('vue-connexion').classList.add('cache');
+        $('vue-salon').classList.remove('cache');
+        $('pseudo-affiche').textContent = joueur.pseudo;
+        $('solde').innerHTML = `${joueur.solde.toLocaleString('fr-CA')} <span>jetons</span>`;
+        chargerJeux();
+      }
+
+      async function chargerJeux() {
+        const { jeux } = await api('/api/jeux');
+        $('liste-jeux').innerHTML = jeux
+          .map((jeu) => {
+            const etiquette = jeu.lien
+              ? '<span class="etiquette">jouable</span>'
+              : '<span class="etiquette bientot">à venir</span>';
+            const corps = `
+                <div>
+                  <h3>${jeu.nom}</h3>
+                  <p>${jeu.resume}</p>
+                </div>
+                ${etiquette}`;
+            return jeu.lien
+              ? `<a class="carte jeu ouvrable" href="${jeu.lien}">${corps}</a>`
+              : `<div class="carte jeu">${corps}</div>`;
+          })
+          .join('');
+      }
+
+      $('onglet-connexion').onclick = () => basculer('connexion');
+      $('onglet-inscription').onclick = () => basculer('inscription');
+
+      $('formulaire').onsubmit = async (evenement) => {
+        evenement.preventDefault();
+        $('message').textContent = '';
+        try {
+          const { joueur } = await api(mode === 'connexion' ? '/api/connexion' : '/api/inscription', {
+            method: 'POST',
+            body: JSON.stringify({
+              pseudo: $('pseudo').value,
+              motDePasse: $('motDePasse').value,
+            }),
+          });
+          afficherSalon(joueur);
+        } catch (erreur) {
+          $('message').textContent = erreur.message;
+        }
+      };
+
+      $('deconnexion').onclick = async () => {
+        await api('/api/deconnexion', { method: 'POST' });
+        location.reload();
+      };
+
+      // Session déjà ouverte ?
+      try {
+        const { joueur } = await api('/api/moi');
+        afficherSalon(joueur);
+      } catch {
+        /* pas connecté, on laisse le formulaire */
+      }
+    </script>
+  </body>
+</html>

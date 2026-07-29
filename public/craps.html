@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Craps de rue</title>
+    <style>
+      :root {
+        --fond: #0e1116;
+        --carte: #171c24;
+        --bordure: #262e3a;
+        --texte: #e7ecf3;
+        --doux: #93a1b5;
+        --accent: #4ade80;
+        --erreur: #f87171;
+        --or: #fbbf24;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--fond);
+        color: var(--texte);
+        font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        display: flex;
+        justify-content: center;
+        padding: 1.5rem 1rem 3rem;
+      }
+      main { width: 100%; max-width: 640px; }
+      a { color: var(--doux); text-decoration: none; font-size: .9rem; }
+      a:hover { color: var(--texte); }
+      h1 { font-size: 1.4rem; margin: .5rem 0 1.25rem; }
+
+      .carte {
+        background: var(--carte);
+        border: 1px solid var(--bordure);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+      }
+      .bandeau { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+      .solde { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+      .solde span { font-size: .75rem; color: var(--doux); font-weight: 500; }
+
+      /* Le tapis */
+      .tapis { text-align: center; padding: 2rem 1.25rem; }
+      .des { display: flex; gap: 1rem; justify-content: center; margin-bottom: 1rem; min-height: 74px; }
+      .de {
+        width: 74px; height: 74px;
+        background: #f3f4f6; color: #111827;
+        border-radius: 12px;
+        display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+        padding: 11px; gap: 3px;
+      }
+      .de i { background: #111827; border-radius: 50%; }
+      .de.serpent { background: #fee2e2; }
+      .de.serpent i { background: #b91c1c; }
+
+      .total { font-size: 2.25rem; font-weight: 800; line-height: 1; }
+      .point { color: var(--or); font-weight: 600; }
+      .phase { color: var(--doux); font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+      .cagnotte { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+
+      button {
+        background: var(--accent); color: #07130c;
+        border: 0; border-radius: 8px;
+        padding: .6rem 1.1rem; font-size: .95rem; font-weight: 600; cursor: pointer;
+      }
+      button:hover:not(:disabled) { filter: brightness(1.08); }
+      button:disabled { opacity: .35; cursor: not-allowed; }
+      button.discret { background: transparent; color: var(--doux); border: 1px solid var(--bordure); font-weight: 500; }
+      button.gros { font-size: 1.1rem; padding: .8rem 2rem; }
+
+      .rangee { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+      input[type="number"] {
+        width: 120px; padding: .55rem .7rem;
+        background: #0f141b; border: 1px solid var(--bordure);
+        border-radius: 8px; color: var(--texte); font-size: 1rem;
+      }
+
+      .journal { max-height: 190px; overflow-y: auto; font-size: .9rem; }
+      .journal div { padding: .3rem 0; border-bottom: 1px solid var(--bordure); color: var(--doux); }
+      .journal div:last-child { border: 0; }
+      .journal .fort { color: var(--texte); font-weight: 600; }
+      .journal .gain { color: var(--accent); font-weight: 600; }
+      .journal .perte { color: var(--erreur); font-weight: 600; }
+
+      .preuve { font-family: ui-monospace, "Cascadia Code", monospace; font-size: .72rem; color: var(--doux); word-break: break-all; }
+      .cache { display: none; }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <a href="/">&larr; Retour au salon</a>
+      <h1>Craps de rue</h1>
+
+      <div class="carte bandeau">
+        <div>
+          <div id="pseudo" style="color: var(--doux); font-size: .9rem"></div>
+          <div class="solde" id="solde">— <span>jetons</span></div>
+        </div>
+        <div style="text-align: right">
+          <div class="phase" id="phase">connexion…</div>
+          <div class="cagnotte" id="cagnotte"></div>
+        </div>
+      </div>
+
+      <div class="carte tapis">
+        <div class="des" id="des"></div>
+        <div class="total" id="total">—</div>
+        <div class="point" id="point">&nbsp;</div>
+      </div>
+
+      <div class="carte" id="commandes">
+        <div class="rangee" id="zone-tirer">
+          <input type="number" id="mise" value="100" min="10" max="5000" step="10" />
+          <button id="btn-tirer">Prendre les dés</button>
+        </div>
+
+        <div class="rangee cache" id="zone-couvrir">
+          <input type="number" id="montant-couverture" value="100" min="1" step="10" />
+          <button id="btn-couvrir">Couvrir</button>
+          <button class="discret" id="btn-commencer">Les jeux sont faits</button>
+        </div>
+
+        <div class="rangee cache" id="zone-lancer">
+          <button class="gros" id="btn-lancer">Lancer les dés</button>
+        </div>
+      </div>
+
+      <div class="carte">
+        <div class="journal" id="journal"></div>
+      </div>
+
+      <div class="carte cache" id="carte-preuve">
+        <div class="phase" style="margin-bottom: .5rem">Vérification de la manche</div>
+        <div class="preuve" id="preuve"></div>
+      </div>
+    </main>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const POINTS = {
+        1: [4], 2: [0, 8], 3: [0, 4, 8],
+        4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+      };
+
+      let moi = null;
+      let etat = null;
+
+      // --- connexion ---
+      try {
+        const reponse = await fetch('/api/moi');
+        if (!reponse.ok) throw new Error();
+        moi = (await reponse.json()).joueur;
+      } catch {
+        location.href = '/';
+      }
+      $('pseudo').textContent = moi.pseudo;
+      majSolde(moi.solde);
+
+      function majSolde(valeur) {
+        $('solde').innerHTML = `${valeur.toLocaleString('fr-CA')} <span>jetons</span>`;
+      }
+
+      async function rafraichirSolde() {
+        const { joueur } = await (await fetch('/api/moi')).json();
+        majSolde(joueur.solde);
+      }
+
+      // --- websocket ---
+      const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+
+      ws.onopen = () => ws.send(JSON.stringify({ type: 'entrer', jeu: 'craps', mode: 'gratuit' }));
+      ws.onclose = () => journal('Connexion perdue. Recharge la page.', 'perte');
+
+      ws.onmessage = (evenement) => {
+        const message = JSON.parse(evenement.data);
+        if (message.type === 'etat') return appliquer(message);
+        if (message.type === 'annonce') return journal(message.message);
+        if (message.type === 'info') return journal(message.message);
+        if (message.type === 'erreur') return journal(message.message, 'perte');
+        if (message.type === 'fin') return terminer(message);
+      };
+
+      const envoyer = (charge) => ws.send(JSON.stringify(charge));
+
+      // --- rendu ---
+      function desHtml(valeurs, serpent) {
+        return valeurs
+          .map((valeur) => {
+            const cellules = Array.from({ length: 9 }, (_, index) =>
+              POINTS[valeur].includes(index) ? '<i></i>' : '<b></b>'
+            ).join('');
+            return `<div class="de ${serpent ? 'serpent' : ''}">${cellules}</div>`;
+          })
+          .join('');
+      }
+
+      function appliquer(nouvelEtat) {
+        etat = nouvelEtat;
+        const estTireur = etat.tireur?.id === moi.id;
+
+        $('phase').textContent =
+          { attente: 'table libre', couverture: 'mises en cours', lancers: 'aux dés', reglement: 'manche finie' }[
+            etat.phase
+          ] ?? etat.phase;
+
+        $('cagnotte').textContent = etat.cagnotte ? `cagnotte ${etat.cagnotte} jetons` : '';
+
+        if (etat.dernierLancer) {
+          $('des').innerHTML = desHtml(etat.dernierLancer.des, etat.dernierLancer.snakeEyes);
+          $('total').textContent = etat.dernierLancer.total;
+        } else {
+          $('des').innerHTML = '';
+          $('total').textContent = '—';
+        }
+
+        $('point').textContent = etat.point ? `point : ${etat.point}` : ' ';
+
+        basculer('zone-tirer', etat.phase === 'attente');
+        basculer('zone-couvrir', etat.phase === 'couverture');
+        basculer('zone-lancer', etat.phase === 'lancers' && estTireur);
+
+        if (etat.phase === 'couverture') {
+          const restant = etat.miseTireur - etat.couvert;
+          $('btn-couvrir').disabled = estTireur || restant <= 0;
+          $('btn-commencer').classList.toggle('cache', !estTireur);
+          $('montant-couverture').max = Math.max(restant, 1);
+          $('montant-couverture').value = Math.min($('montant-couverture').value, Math.max(restant, 1));
+        }
+      }
+
+      const basculer = (id, visible) => $(id).classList.toggle('cache', !visible);
+
+      function journal(texte, classe = '') {
+        const ligne = document.createElement('div');
+        ligne.className = classe;
+        ligne.textContent = texte;
+        $('journal').prepend(ligne);
+        while ($('journal').childElementCount > 40) $('journal').lastElementChild.remove();
+      }
+
+      function terminer(message) {
+        const jeGagne = message.tireurGagne
+          ? etat.tireur?.id === moi.id
+          : etat.couvreurs.some((c) => c.pseudo === moi.pseudo);
+
+        journal(message.message, message.tireurGagne ? 'fort' : 'fort');
+        if (etat.cagnotte > 0) {
+          journal(jeGagne ? 'Tu ramasses la cagnotte.' : 'Manche perdue.', jeGagne ? 'gain' : 'perte');
+        }
+
+        $('carte-preuve').classList.remove('cache');
+        $('preuve').innerHTML = `
+          empreinte publiée avant la manche :<br />${message.preuve.empreinteGraine}<br /><br />
+          graine serveur révélée :<br />${message.preuve.graineServeur}<br /><br />
+          ${message.preuve.lancers} lancer(s) · commission ${message.commissionBp / 100} %`;
+
+        rafraichirSolde();
+      }
+
+      // --- actions ---
+      $('btn-tirer').onclick = () => envoyer({ action: 'tirer', montant: Number($('mise').value) });
+      $('btn-couvrir').onclick = () =>
+        envoyer({ action: 'couvrir', montant: Number($('montant-couverture').value) });
+      $('btn-commencer').onclick = () => envoyer({ action: 'commencer' });
+      $('btn-lancer').onclick = () => envoyer({ action: 'lancer' });
+    </script>
+  </body>
+</html>

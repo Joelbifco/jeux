@@ -1,0 +1,14 @@
+{
+  "name": "jeux",
+  "version": "0.1.0",
+  "description": "Plateforme de jeux — socle commun (comptes, grand livre, provably fair) et modules de jeu.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
